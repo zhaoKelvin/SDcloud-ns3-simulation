@@ -50,3 +50,13 @@ vcpkg/
 
 # Ignore local cache used by e.g. clangd
 .cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+bin/
+lib/
+include/
+sdcloud-py/
