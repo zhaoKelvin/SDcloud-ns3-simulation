@@ -60,3 +60,5 @@ bin/
 lib/
 include/
 sdcloud-py/
+
+results/
