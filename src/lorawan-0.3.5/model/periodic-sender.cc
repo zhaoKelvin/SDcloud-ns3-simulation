@@ -10,6 +10,8 @@
 
 #include "lora-net-device.h"
 
+#include "sender-id-tag.h"
+
 #include "ns3/double.h"
 #include "ns3/log.h"
 #include "ns3/pointer.h"
@@ -109,6 +111,10 @@ PeriodicSender::SendPacket()
     {
         packet = Create<Packet>(m_basePktSize);
     }
+    // std::cout << m_node->GetId() << '\n';
+    // std::cout << Simulator::Now().GetSeconds() << '\n';
+    SenderIdTag tag(m_node->GetId(), Simulator::Now().GetSeconds());
+    packet->AddPacketTag(tag);
     m_mac->Send(packet);
 
     // Schedule the next SendPacket event

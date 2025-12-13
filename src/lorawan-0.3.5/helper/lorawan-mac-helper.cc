@@ -528,7 +528,6 @@ LorawanMacHelper::SetSpreadingFactorsUp(NodeContainer endDevices,
             sfQuantity[6]++;
             // NS_LOG_DEBUG ("sfQuantity[6] = " << sfQuantity[6]);
         }
-
         /*
 
         // Get the Gw sensitivity

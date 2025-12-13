@@ -3,6 +3,7 @@ set(source_files
     model/lorawan-mac.cc
     model/lora-phy.cc
     model/building-penetration-loss.cc
+    model/forest-penetration-loss.cc
     model/correlated-shadowing-propagation-loss-model.cc
     model/lora-channel.cc
     model/lora-interference-helper.cc
@@ -46,6 +47,7 @@ set(source_files
     helper/forwarder-helper.cc
     helper/network-server-helper.cc
     helper/lora-packet-tracker.cc
+    model/sender-id-tag.cc
 )
 
 set(header_files
@@ -53,6 +55,7 @@ set(header_files
     model/lorawan-mac.h
     model/lora-phy.h
     model/building-penetration-loss.h
+    model/forest-penetration-loss.h
     model/correlated-shadowing-propagation-loss-model.h
     model/lora-channel.h
     model/lora-interference-helper.h
@@ -97,6 +100,7 @@ set(header_files
     helper/network-server-helper.h
     helper/lora-packet-tracker.h
     test/utilities.h
+    model/sender-id-tag.h
 )
 
 build_lib(
