@@ -314,7 +314,7 @@ int main(int argc, char* argv[])
         ApplicationContainer app = appHelper.Install(endDevices.Get(i));
         double start = 2 + i * 0.25;
         app.Start(Seconds(start));
-        app.Stop(Seconds(simTimeSec * 0.9));
+        app.Stop(Seconds(simTimeSec - 2.0));
     }
 
     /**************************
