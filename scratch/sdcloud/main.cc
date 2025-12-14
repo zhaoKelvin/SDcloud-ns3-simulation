@@ -73,10 +73,10 @@ DeviceEnergyModelContainer SetupEnergyModel(
             WifiRadioEnergyModelHelper wifiEnergy;
             wifiEnergy.Set("IdleCurrentA", DoubleValue(0.0704));      // The default radio Idle current in Ampere.
             wifiEnergy.Set("CcaBusyCurrentA", DoubleValue(0.0868));   // The default radio CCA Busy State current in Ampere.
-            wifiEnergy.Set("TxCurrentA", DoubleValue(0.136));   // The radio Tx current in Ampere.
-            wifiEnergy.Set("RxCurrentA", DoubleValue(0.0868));   // The radio Rx current in Ampere.
+            wifiEnergy.Set("TxCurrentA", DoubleValue(0.381));   // The radio Tx current in Ampere.
+            wifiEnergy.Set("RxCurrentA", DoubleValue(0.130));   // The radio Rx current in Ampere.
             wifiEnergy.Set("SwitchingCurrentA", DoubleValue(0.0868)); // The default radio Channel Switch current in Ampere.
-            wifiEnergy.Set("SleepCurrentA", DoubleValue(0.000150));     // The radio Sleep current in Ampere.
+            wifiEnergy.Set("SleepCurrentA", DoubleValue(0.0000010));     // The radio Sleep current in Ampere.
             models = wifiEnergy.Install(wifiIfaces, sources);
         }
         else
@@ -84,10 +84,10 @@ DeviceEnergyModelContainer SetupEnergyModel(
             WifiRadioEnergyModelHelper wifiEnergy;
             wifiEnergy.Set("IdleCurrentA", DoubleValue(0.0704));      // The default radio Idle current in Ampere.
             wifiEnergy.Set("CcaBusyCurrentA", DoubleValue(0.0868));   // The default radio CCA Busy State current in Ampere.
-            wifiEnergy.Set("TxCurrentA", DoubleValue(0.136));   // The radio Tx current in Ampere.
-            wifiEnergy.Set("RxCurrentA", DoubleValue(0.0868));   // The radio Rx current in Ampere.
+            wifiEnergy.Set("TxCurrentA", DoubleValue(0.246));   // The radio Tx current in Ampere.
+            wifiEnergy.Set("RxCurrentA", DoubleValue(0.100));   // The radio Rx current in Ampere.
             wifiEnergy.Set("SwitchingCurrentA", DoubleValue(0.0868)); // The default radio Channel Switch current in Ampere.
-            wifiEnergy.Set("SleepCurrentA", DoubleValue(0.000150));     // The radio Sleep current in Ampere.
+            wifiEnergy.Set("SleepCurrentA", DoubleValue(0.0000010));     // The radio Sleep current in Ampere.
             models = wifiEnergy.Install(devices, sources);
         }
     }
@@ -155,8 +155,16 @@ InstallWifi(
     double txPowerDbm)
 {
     WifiHelper wifi;
-    wifi.SetStandard(WIFI_STANDARD_80211ax); // use ax (best that esp32 supports)
-    wifi.SetRemoteStationManager("ns3::MinstrelHtWifiManager");
+    wifi.SetStandard(WIFI_STANDARD_80211ax); // esp32-c5 supports
+    // wifi.SetRemoteStationManager("ns3::IdealWifiManager");  // represents an optimistic upper bound assuming ideal rate adaptation
+
+    // Because ESP32-C5 rate adaptation is firmware-defined and undocumented, we model Wi-Fi using fixed HE MCS values via ConstantRateWifiManager
+    // This captures embedded-device behavior more faithfully than Linux-derived rate adaptation algorithms
+    wifi.SetRemoteStationManager("ns3::ConstantRateWifiManager",
+                                 "DataMode",
+                                 StringValue("HeMcs0"),
+                                 "ControlMode",
+                                 StringValue("HeMcs0"));
 
     // Build environment-specific propagation models
     YansWifiChannelHelper chan = BuildEnvironmentChannel(environment);
@@ -259,13 +267,13 @@ std::tuple<NetDeviceContainer, Ipv4InterfaceContainer> InstallP2P(NodeContainer&
 int main(int argc, char *argv[])
 {
     // ---------------- Parameters (overridable by CLI) ----------------
-    uint32_t nDevices     = 10;
+    uint32_t nDevices     = 16;
     double   distance  = 30.0;
     uint32_t payloadBytes = 128;
     double   intervalSec  = 30.0;
     double   simTimeSec   = 300.0;
     uint16_t serverPort   = 9;
-    double   txPowerDbm   = 10.0;
+    double   txPowerDbm   = 15.0;
     bool     verbose      = false;
 
     std::string experimentName = "default";
@@ -296,6 +304,11 @@ int main(int argc, char *argv[])
     if (technology != "wifi")
     {
         NS_FATAL_ERROR("Only wifi is implemented at the moment.");
+    }
+
+    if (topology == "mesh")
+    {
+        txPowerDbm = 17.0;
     }
 
     long root = static_cast<long>(sqrt(nDevices));
@@ -428,16 +441,17 @@ int main(int argc, char *argv[])
     client.SetAttribute("Interval", TimeValue(Seconds(intervalSec)));
     client.SetAttribute("PacketSize", UintegerValue(payloadBytes));
 
-    // Ptr<UniformRandomVariable> jitter = CreateObject<UniformRandomVariable>();
-    // jitter->SetAttribute("Min", DoubleValue(0.0));
-    // jitter->SetAttribute("Max", DoubleValue(0.5));
+    Ptr<UniformRandomVariable> jitter = CreateObject<UniformRandomVariable>();
+    jitter->SetAttribute("Min", DoubleValue(0.0));
+    jitter->SetAttribute("Max", DoubleValue(0.5));
 
     for (uint32_t i = 0; i < nDevices; ++i)
     {
         ApplicationContainer apps = client.Install(sensors.Get(i));
-        double start = 2.0 + i * 0.25;
+        // double start = 2.0 + i * 0.25;
+        double start = 2.0 + jitter->GetValue();
         apps.Start(Seconds(start));
-        apps.Stop(Seconds(simTimeSec * 0.9));
+        apps.Stop(Seconds(simTimeSec - 2.0));
     }
 
 

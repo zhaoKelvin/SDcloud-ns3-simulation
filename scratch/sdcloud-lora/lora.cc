@@ -110,7 +110,7 @@ DeviceEnergyModelContainer SetupLoraEnergyModel(NodeContainer& nodes, NetDeviceC
     loraEnergy.Set("StandbyCurrentA", DoubleValue(0.0704));
     loraEnergy.Set("TxCurrentA", DoubleValue(0.0868+0.125));
     // loraEnergy.Set("SleepCurrentA", DoubleValue(0.0704));
-    loraEnergy.Set("SleepCurrentA", DoubleValue(0.000150));
+    loraEnergy.Set("SleepCurrentA", DoubleValue(0.0000010));
     loraEnergy.Set("RxCurrentA", DoubleValue(0.0868+0.0076));
 
     DeviceEnergyModelContainer models = loraEnergy.Install(devices, sources);

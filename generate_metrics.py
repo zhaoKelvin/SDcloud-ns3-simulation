@@ -127,7 +127,7 @@ def load_energy_csv(path):
 # ============================================================
 # Compute single-run metrics
 # ============================================================
-def compute_bits_per_joule_per_second(stats, final_energy, duration):
+def compute_bits_per_joule(stats, final_energy):
     bpj = {}
 
     for node, remaining_j in final_energy.items():
@@ -141,7 +141,7 @@ def compute_bits_per_joule_per_second(stats, final_energy, duration):
         else:
             delivered_bits = 0
 
-        bpj[node] = delivered_bits / energy_used / duration
+        bpj[node] = delivered_bits / energy_used
 
     return bpj
 
@@ -156,12 +156,12 @@ def compute_single_run(flow_stats, energy_remaining, duration):
 
     # Total initial energy = 300 J for each node
     duration = max(duration, 1e-12)
-    bpjs = compute_bits_per_joule_per_second(flow_stats, energy_remaining, duration)
+    bpj = compute_bits_per_joule(flow_stats, energy_remaining)
     
-    average_aggregate_bpj = sum(bpjs.values()) / len(bpjs)
+    average_aggregate_bpj = sum(bpj.values()) / len(bpj)
     
-    valid_bpjs = [bpj for node, bpj in bpjs.items() if bpj > 0]
-    average_valid_bpj = sum(valid_bpjs) / max(len(valid_bpjs), 1)
+    valid_bpj = [bpj for node, bpj in bpj.items() if bpj > 0]
+    average_valid_bpj = sum(valid_bpj) / max(len(valid_bpj), 1)
 
     return {
         "avg_pdr": avg_pdr,
@@ -207,7 +207,7 @@ def plot_single_run(stats, final_energy, duration=SIMULATION_TIME):
     axs[4].grid(axis="y", linestyle="--", alpha=0.5)
     
     # ---- Bits-per-Joule efficiency ----
-    bpj = compute_bits_per_joule_per_second(stats, final_energy, duration)
+    bpj = compute_bits_per_joule(stats, final_energy)
 
     node_ids = sorted(bpj.keys())
     bpj_values = [bpj[n] for n in node_ids]
@@ -239,6 +239,7 @@ def load_experiment_runs(folder, lora=False):
 
         meta_obj = json.load(open(meta))
         duration = meta_obj.get("simTimeSec", SIMULATION_TIME)
+        print(duration)
 
         # Decide which metrics file to use
         stats = None
@@ -268,6 +269,7 @@ def plot_batch(runs):
     interval_throughput = {}
     interval_total_energy = {}
     interval_avg_power = {}
+    simtime_bpj = {}
 
     for flow_stats, energy_remaining, meta in runs:
         env = meta.get("environment", "field")
@@ -286,6 +288,7 @@ def plot_batch(runs):
             interval_throughput[tech] = {}
             interval_total_energy[tech] = {}
             interval_avg_power[tech] = {}
+            simtime_bpj[tech] = {}
         if env not in tech_maps[tech]:
             tech_maps[tech][env] = {"pdr": {}, "bpj": {}}
         if env not in interval_pdr[tech]:
@@ -295,12 +298,14 @@ def plot_batch(runs):
             interval_throughput[tech][env] = {}
             interval_total_energy[tech][env] = {}
             interval_avg_power[tech][env] = {}
+            simtime_bpj[tech][env] = {}
         if dist not in tech_maps[tech][env]["pdr"]:
             tech_maps[tech][env]["pdr"][dist] = []
             tech_maps[tech][env]["bpj"][dist] = []
 
         tech_maps[tech][env]["pdr"][dist].append(metrics["avg_pdr"])
         tech_maps[tech][env]["bpj"][dist].append(metrics["average_aggregate_bpj"])
+        simtime_bpj[tech][env].setdefault(duration, []).append(metrics["average_aggregate_bpj"])
 
         total_energy_used = sum(INITIAL_ENERGY_J - rem for rem in energy_remaining.values())
         total_tx_packets = sum(fs["tx_packets"] for fs in flow_stats.values())
@@ -490,6 +495,24 @@ def plot_batch(runs):
     plot_interval_metric("Throughput vs Message Interval", "Throughput (bps)", interval_throughput)
     plot_interval_metric("Total Energy Consumed vs Message Interval", "Total Energy Consumed (J)", interval_total_energy)
     plot_interval_metric("Average Power vs Message Interval", "Average Power (W)", interval_avg_power)
+
+    # Simulation time vs BPJ figure
+    fig_st, ax_st = plt.subplots(1, 1, figsize=(8, 4))
+    for tech, env, _ in series:
+        color = color_map[(tech, env)]
+        st_map = simtime_bpj.get(tech, {}).get(env, {})
+        if not st_map:
+            continue
+        xs = sorted(st_map.keys())
+        ys = [np.median(st_map[x]) for x in xs]
+        ax_st.plot(xs, ys, color=color, marker="o", linewidth=2.0, label=f"{tech}-{env}")
+    ax_st.set_xlabel("Simulation Time (s)")
+    ax_st.set_ylabel("Bits per Joule")
+    ax_st.set_title("Bits-per-Joule vs Simulation Time")
+    ax_st.grid(True, linestyle="--", alpha=0.5)
+    ax_st.legend()
+    plt.tight_layout()
+    plt.show()
 
     # Reliability–energy frontier: scatter PDR vs Energy/Msg, colored by interval
     fig_frontier, ax_frontier = plt.subplots(1, 1, figsize=(8, 4))
