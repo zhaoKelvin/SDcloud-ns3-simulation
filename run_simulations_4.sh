@@ -5,7 +5,7 @@
 # -------------------------------------------------------------------
 
 # The name that will appear in results/<EXPERIMENT_NAME>/
-EXPERIMENT_NAME="packet_size_vs_pdr"
+EXPERIMENT_NAME="packet_size_vs_pdr_paper_1"
 
 # Environments to test
 ENVIRONMENTS=("field" "forest")
@@ -20,10 +20,9 @@ NUM_RUNS=5
 # Additional common ns-3 parameters
 SIM_TIME=150
 INTERVAL=30
-PAYLOAD=32
 DEVICES=64
 
-PAYLOADS=(8 32 64 128 256 512 1024 2048 4096 8192)
+PAYLOADS=(16 32 64 128 256 512 1024 2048 4096 8192)
 
 NS3="./ns3 run"
 
@@ -63,7 +62,7 @@ for ENV in "${ENVIRONMENTS[@]}"; do
             #     --distance=${DIST} \
             #     --runSeed=${RUN}\""
 
-            echo "Starting ENV=${ENV}, DIST=${DIST}, RUN=${RUN}"
+            echo "Starting ENV=${ENV}, PAYLOAD=${PAYLOAD}, RUN=${RUN}"
             eval "${CMD}" &
             bg_pids+=($!)
         done
