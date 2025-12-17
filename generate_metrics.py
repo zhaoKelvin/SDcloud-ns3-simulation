@@ -239,7 +239,7 @@ def load_experiment_runs(folder, lora=False):
 
         meta_obj = json.load(open(meta))
         duration = meta_obj.get("simTimeSec", SIMULATION_TIME)
-        print(duration)
+        # print(duration)
 
         # Decide which metrics file to use
         stats = None
@@ -269,6 +269,8 @@ def plot_batch(runs):
     interval_throughput = {}
     interval_total_energy = {}
     interval_avg_power = {}
+    payload_pdr = {}
+    payload_bpj = {}
     simtime_bpj = {}
 
     for flow_stats, energy_remaining, meta in runs:
@@ -276,6 +278,7 @@ def plot_batch(runs):
         tech = meta.get("technology", "unknown")
         dist = meta["distance"]
         interval_val = meta.get("intervalSec", meta.get("interval", None))
+        payload_val = meta.get("payloadBytes", None)
 
         duration = meta.get("simTimeSec", SIMULATION_TIME)
         metrics = compute_single_run(flow_stats, energy_remaining, duration)
@@ -288,6 +291,8 @@ def plot_batch(runs):
             interval_throughput[tech] = {}
             interval_total_energy[tech] = {}
             interval_avg_power[tech] = {}
+            payload_pdr[tech] = {}
+            payload_bpj[tech] = {}
             simtime_bpj[tech] = {}
         if env not in tech_maps[tech]:
             tech_maps[tech][env] = {"pdr": {}, "bpj": {}}
@@ -298,6 +303,8 @@ def plot_batch(runs):
             interval_throughput[tech][env] = {}
             interval_total_energy[tech][env] = {}
             interval_avg_power[tech][env] = {}
+            payload_pdr[tech][env] = {}
+            payload_bpj[tech][env] = {}
             simtime_bpj[tech][env] = {}
         if dist not in tech_maps[tech][env]["pdr"]:
             tech_maps[tech][env]["pdr"][dist] = []
@@ -326,6 +333,12 @@ def plot_batch(runs):
             interval_throughput[tech][env][interval_val].append(metrics["avg_throughput"])
             interval_total_energy[tech][env][interval_val].append(total_energy_used)
             interval_avg_power[tech][env][interval_val].append(avg_power)
+        if payload_val is not None:
+            if payload_val not in payload_pdr[tech][env]:
+                payload_pdr[tech][env][payload_val] = []
+                payload_bpj[tech][env][payload_val] = []
+            payload_pdr[tech][env][payload_val].append(metrics["avg_pdr"])
+            payload_bpj[tech][env][payload_val].append(metrics["average_aggregate_bpj"])
 
     # Single set of figures with all technologies/environments
     fig, axs = plt.subplots(2, 1, figsize=(10, 8))
@@ -380,7 +393,7 @@ def plot_batch(runs):
                     print("   " + " | ".join(row))
         print("==============================================================")
 
-    print_pdr_comparisons()
+    # print_pdr_comparisons()
 
     def print_bpj_interval_comparisons():
         print("=== Bits-per-Joule vs Interval: Percentage Differences by Environment ===")
@@ -416,7 +429,7 @@ def plot_batch(runs):
                     print("   " + " | ".join(row))
         print("==============================================================")
 
-    print_bpj_interval_comparisons()
+    # print_bpj_interval_comparisons()
 
     def make_boxplot(ax, metric_key, title, ylabel):
         for idx, (tech, env, metrics) in enumerate(series):
@@ -495,6 +508,32 @@ def plot_batch(runs):
     plot_interval_metric("Throughput vs Message Interval", "Throughput (bps)", interval_throughput)
     plot_interval_metric("Total Energy Consumed vs Message Interval", "Total Energy Consumed (J)", interval_total_energy)
     plot_interval_metric("Average Power vs Message Interval", "Average Power (W)", interval_avg_power)
+
+    def plot_payload_metric(title, ylabel, data_map):
+        fig_pl, ax_pl = plt.subplots(1, 1, figsize=(8, 4))
+        for idx, (tech, env, _) in enumerate(series):
+            color = color_map[(tech, env)]
+            payloads = data_map.get(tech, {}).get(env, {})
+            if not payloads:
+                continue
+            xs = sorted(payloads.keys())
+            medians = [np.median(payloads[x]) for x in xs]
+            ax_pl.plot(xs, medians, color=color, marker="o", linewidth=2.0, label=f"{tech}-{env}")
+        ax_pl.set_xlabel("Payload Size (bytes)")
+        ax_pl.set_ylabel(ylabel)
+        ax_pl.set_title(title)
+        ax_pl.grid(True, linestyle="--", alpha=0.5)
+        ax_pl.set_xscale("log")
+        formatter = ScalarFormatter()
+        formatter.set_scientific(False)
+        ax_pl.xaxis.set_major_formatter(formatter)
+        ax_pl.legend()
+        plt.tight_layout()
+        plt.show()
+
+    # Payload-based figures
+    plot_payload_metric("PDR vs Payload Size", "PDR", payload_pdr)
+    plot_payload_metric("Bits-per-Joule vs Payload Size", "Bits per Joule", payload_bpj)
 
     # Simulation time vs BPJ figure
     fig_st, ax_st = plt.subplots(1, 1, figsize=(8, 4))
