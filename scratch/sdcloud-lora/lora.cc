@@ -134,9 +134,9 @@ int main(int argc, char* argv[])
     uint32_t nDevices        = 64;      // number of end devices
     uint32_t nGateways       = 1;       // number of gateways
     double   distance        = 1000.0;  // deployment radius
-    double   simTimeSec      = 3000.0;  // simulation time (s)
-    double   intervalSec     = 500.0;   // app send interval (s)
-    uint32_t payloadBytes    = 32;      // LoRa payload size (bytes)
+    double   simTimeSec      = 300.0;  // simulation time (s)
+    double   intervalSec     = 30.0;   // app send interval (s)
+    uint32_t payloadBytes    = 25600;      // LoRa payload size (bytes)
     std::string     environment = "field";  // correlated shadowing + buildings
     std::string experimentName = "lora_default";
     uint32_t runSeed         = 1;
@@ -235,11 +235,12 @@ int main(int argc, char* argv[])
      ************************/
 
     Ptr<LogDistancePropagationLossModel> loss = CreateObject<LogDistancePropagationLossModel>();
-    loss->SetPathLossExponent(3.76);
-    loss->SetReference(1, 7.7);
+    loss->SetPathLossExponent(2.0);
+    loss->SetReference(1, 31.0);
 
     if (environment == "forest")
     {
+        loss->SetPathLossExponent(3.5);
         Ptr<CorrelatedShadowingPropagationLossModel> shadowing =
             CreateObject<CorrelatedShadowingPropagationLossModel>();
         loss->SetNext(shadowing);
