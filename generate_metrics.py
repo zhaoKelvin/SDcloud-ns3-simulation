@@ -357,7 +357,7 @@ def plot_batch(runs):
 
     color_map = {(tech, env): plt.cm.tab20(i % 20) for i, (tech, env, _) in enumerate(series)}
 
-    def print_pdr_comparisons():
+    def print_pdr_distance_comparisons():
         print("=== PDR vs Distance: Percentage Differences by Environment ===")
         # Gather env -> list of techs
         env_to_techs = {}
@@ -393,7 +393,73 @@ def plot_batch(runs):
                     print("   " + " | ".join(row))
         print("==============================================================")
 
-    # print_pdr_comparisons()
+    def print_bpj_distance_comparisons():
+        print("=== Bits-per-Joule vs Distance: Percentage Differences by Environment ===")
+        env_to_techs = {}
+        for tech, env, _ in series:
+            env_to_techs.setdefault(env, []).append(tech)
+        for env, tech_list in env_to_techs.items():
+            unique_techs = sorted(set(tech_list))
+            if len(unique_techs) < 2:
+                continue
+            common_dists = None
+            per_tech_medians = {}
+            for tech in unique_techs:
+                dvals = tech_maps.get(tech, {}).get(env, {}).get("bpj", {})
+                medians = {d: np.median(vals) for d, vals in dvals.items() if len(vals) > 0}
+                per_tech_medians[tech] = medians
+                if common_dists is None:
+                    common_dists = set(medians.keys())
+                else:
+                    common_dists &= set(medians.keys())
+            if not common_dists:
+                continue
+            print(f"-- Environment: {env} (common distances: {sorted(common_dists)})")
+            for dist in sorted(common_dists):
+                row = []
+                for t1, t2 in combinations(unique_techs, 2):
+                    base = per_tech_medians[t2].get(dist, 0.0)
+                    num = per_tech_medians[t1].get(dist, 0.0)
+                    if base > 0:
+                        pct = 100.0 * (num - base) / base
+                        row.append(f"{t1} vs {t2} @ {dist} m: {pct:+.1f}%")
+                if row:
+                    print("   " + " | ".join(row))
+        print("==============================================================")
+
+    def print_pdr_interval_comparisons():
+        print("=== PDR vs Interval: Percentage Differences by Environment ===")
+        env_to_techs = {}
+        for tech, env, _ in series:
+            env_to_techs.setdefault(env, []).append(tech)
+        for env, tech_list in env_to_techs.items():
+            unique_techs = sorted(set(tech_list))
+            if len(unique_techs) < 2:
+                continue
+            common_intervals = None
+            per_tech_medians = {}
+            for tech in unique_techs:
+                ivals = interval_pdr.get(tech, {}).get(env, {})
+                medians = {i: np.median(vals) for i, vals in ivals.items() if len(vals) > 0}
+                per_tech_medians[tech] = medians
+                if common_intervals is None:
+                    common_intervals = set(medians.keys())
+                else:
+                    common_intervals &= set(medians.keys())
+            if not common_intervals:
+                continue
+            print(f"-- Environment: {env} (common intervals: {sorted(common_intervals)})")
+            for iv in sorted(common_intervals):
+                row = []
+                for t1, t2 in combinations(unique_techs, 2):
+                    base = per_tech_medians[t2].get(iv, 0.0)
+                    num = per_tech_medians[t1].get(iv, 0.0)
+                    if base > 0:
+                        pct = 100.0 * (num - base) / base
+                        row.append(f"{t1} vs {t2} @ {iv}s: {pct:+.1f}%")
+                if row:
+                    print("   " + " | ".join(row))
+        print("==============================================================")
 
     def print_bpj_interval_comparisons():
         print("=== Bits-per-Joule vs Interval: Percentage Differences by Environment ===")
@@ -429,9 +495,73 @@ def plot_batch(runs):
                     print("   " + " | ".join(row))
         print("==============================================================")
 
-    # print_bpj_interval_comparisons()
+    def compare_envs_distance(metric_key, title):
+        print(f"=== {title}: Field vs Forest (and other env pairs) per Tech ===")
+        tech_to_envs = {}
+        for tech, env, _ in series:
+            tech_to_envs.setdefault(tech, set()).add(env)
+        for tech, envs in tech_to_envs.items():
+            env_list = sorted(envs)
+            if len(env_list) < 2:
+                continue
+            for e1, e2 in combinations(env_list, 2):
+                dvals1 = tech_maps.get(tech, {}).get(e1, {}).get(metric_key, {})
+                dvals2 = tech_maps.get(tech, {}).get(e2, {}).get(metric_key, {})
+                med1 = {d: np.median(v) for d, v in dvals1.items() if v}
+                med2 = {d: np.median(v) for d, v in dvals2.items() if v}
+                common = set(med1.keys()) & set(med2.keys())
+                if not common:
+                    continue
+                rows = []
+                for dist in sorted(common):
+                    base = med2.get(dist, 0.0)
+                    num = med1.get(dist, 0.0)
+                    if base > 0:
+                        pct = 100.0 * (num - base) / base
+                        rows.append(f"{e1} vs {e2} @ {dist} m: {pct:+.1f}%")
+                if rows:
+                    print(f"-- Tech: {tech} | " + " | ".join(rows))
+        print("==============================================================")
 
-    def make_boxplot(ax, metric_key, title, ylabel):
+    def compare_envs_interval(metric_map, title):
+        print(f"=== {title}: Field vs Forest (and other env pairs) per Tech ===")
+        tech_to_envs = {}
+        for tech, env, _ in series:
+            tech_to_envs.setdefault(tech, set()).add(env)
+        for tech, envs in tech_to_envs.items():
+            env_list = sorted(envs)
+            if len(env_list) < 2:
+                continue
+            for e1, e2 in combinations(env_list, 2):
+                ivals1 = metric_map.get(tech, {}).get(e1, {})
+                ivals2 = metric_map.get(tech, {}).get(e2, {})
+                med1 = {i: np.median(v) for i, v in ivals1.items() if v}
+                med2 = {i: np.median(v) for i, v in ivals2.items() if v}
+                common = set(med1.keys()) & set(med2.keys())
+                if not common:
+                    continue
+                rows = []
+                for iv in sorted(common):
+                    base = med2.get(iv, 0.0)
+                    num = med1.get(iv, 0.0)
+                    if base > 0:
+                        pct = 100.0 * (num - base) / base
+                        rows.append(f"{e1} vs {e2} @ {iv}s: {pct:+.1f}%")
+                if rows:
+                    print(f"-- Tech: {tech} | " + " | ".join(rows))
+        print("==============================================================")
+
+    # Print comparison tables
+    # print_pdr_distance_comparisons()
+    # print_bpj_distance_comparisons()
+    # print_pdr_interval_comparisons()
+    # print_bpj_interval_comparisons()
+    # compare_envs_distance("pdr", "PDR vs Distance")
+    # compare_envs_distance("bpj", "Bits-per-Joule vs Distance")
+    # compare_envs_interval(interval_pdr, "PDR vs Interval")
+    # compare_envs_interval(interval_bpj, "Bits-per-Joule vs Interval")
+
+    def make_boxplot(ax, metric_key, title, ylabel, logy=False):
         for idx, (tech, env, metrics) in enumerate(series):
             color = color_map[(tech, env)]
             dvals = metrics[metric_key]
@@ -456,6 +586,9 @@ def plot_batch(runs):
         ax.set_title(title)
         ax.grid(True, linestyle="--", alpha=0.5)
         ax.set_xscale("log")
+        if logy:
+            ax.set_yscale("symlog")
+            ax.set_ylim(0, 1e4)
         formatter = ScalarFormatter()
         formatter.set_scientific(False)
         ax.xaxis.set_major_formatter(formatter)
@@ -472,7 +605,8 @@ def plot_batch(runs):
         axs[1],
         metric_key="bpj",
         title="Bits-per-Joule vs Distance",
-        ylabel="Bits per Joule"
+        ylabel="Bits per Joule",
+        logy=True
     )
 
     plt.tight_layout()
